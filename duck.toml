@@ -1,0 +1,11 @@
+[meta]
+name = "My Project"
+version = "0.1.0"
+author = "hecker"
+description = ""
+
+[dependencies]
+
+[project]
+main = "main.py"
+tests = "tests/"
