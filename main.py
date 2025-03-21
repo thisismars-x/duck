@@ -332,7 +332,7 @@ base_html = r'''
 import argparse
 parser = argparse.ArgumentParser(description="What file do you want doc for?")
 parser.add_argument("--filename", help="filename?", default="file.py")
-parser.add_argument("--output", help="output filename?", default="page.html")
+parser.add_argument("--output", help="output filename?", default="index.html")
 args = parser.parse_args()
 
 
