@@ -2,10 +2,11 @@ import argparse
 import os
 import subprocess
 import toml
+import sys
 
-# function for initlizing the proj
+# initializingg
 def init_project(args):
-    """Initialize a new project by creating duck.toml, main.py, and tests/ directory."""
+    """Initialize a new project by creating duck.toml, main.py, tests/ directory, and a virtual environment."""
     if os.path.exists('duck.toml'):
         print("duck.toml already exists. Aborting.")
         return
@@ -19,7 +20,8 @@ def init_project(args):
         'dependencies': {},
         'project': {
             'main': 'main.py',
-            'tests': 'tests/'
+            'tests': 'tests/',
+            'venv': args.venv  
         }
     }
     with open('duck.toml', 'w') as f:
@@ -29,34 +31,65 @@ def init_project(args):
             f.write('# Main program\n')
     if not os.path.exists('tests'):
         os.makedirs('tests')
-    print("Initialized duck.toml, main.py, and tests/ directory")
+    
+    # venv here
+    # python duck.py init --> Initialize a new project with default virtual environment
+    # python duck.py init --venv myenv --> Initialize with a custom virtual environment
+    venv_path = args.venv
+    if not os.path.exists(venv_path):
+        subprocess.run([sys.executable, '-m', 'venv', venv_path])
+        print(f"Created virtual environment at {venv_path}")
+    else:
+        print(f"Using existing virtual environment at {venv_path}")
+    
+    # Provide activation instructions
+    if os.name == 'nt': 
+        activate_cmd = f"{venv_path}\\Scripts\\activate"
+    else:  
+        activate_cmd = f"source {venv_path}/bin/activate"
+    print(f"To activate the virtual environment, run: {activate_cmd}")
+    print("Initialized duck.toml, main.py, tests/ directory, and virtual environment")
 
-# runniung main prg
 def run_main(args):
+    """Run the main program using the virtual environment's Python interpreter."""
     if not os.path.exists('duck.toml'):
         print("duck.toml not found. Run 'duck init' first.")
         return
     config = toml.load('duck.toml')
+    venv_path = config.get('project', {}).get('venv', '.venv')
+    if not os.path.exists(venv_path):
+        print(f"Virtual environment {venv_path} not found. Please create it or update duck.toml.")
+        return
+    if os.name == 'nt':
+        python_exe = os.path.join(venv_path, 'Scripts', 'python.exe')
+    else:
+        python_exe = os.path.join(venv_path, 'bin', 'python')
     main_file = config.get('project', {}).get('main', 'main.py')
     if not os.path.exists(main_file):
         print(f"{main_file} not found.")
         return
-    subprocess.run(['python', main_file])
+    subprocess.run([python_exe, main_file])
 
-# Function to run tests
 def run_tests(args):
-    """Run all tests in the tests dir"""
+    """Run all tests in the directory specified in duck.toml using the virtual environment."""
     if not os.path.exists('duck.toml'):
         print("duck.toml not found. Run 'duck init' first.")
         return
     config = toml.load('duck.toml')
+    venv_path = config.get('project', {}).get('venv', '.venv')
+    if not os.path.exists(venv_path):
+        print(f"Virtual environment {venv_path} not found. Please create it or update duck.toml.")
+        return
+    if os.name == 'nt':
+        python_exe = os.path.join(venv_path, 'Scripts', 'python.exe')
+    else:
+        python_exe = os.path.join(venv_path, 'bin', 'python')
     test_dir = config.get('project', {}).get('tests', 'tests/')
     if not os.path.exists(test_dir):
         print(f"{test_dir} not found.")
         return
-    subprocess.run(['pytest', test_dir])
+    subprocess.run([python_exe, '-m', 'pytest', test_dir])
 
-# Function to set configuration values
 def set_config(key_value):
     """Set a key-value pair in duck.toml, supporting nested keys."""
     if not os.path.exists('duck.toml'):
@@ -77,12 +110,12 @@ def set_config(key_value):
         toml.dump(config, f)
     print(f"Set {key} to {value}")
 
-# CLI parser goes here
 parser = argparse.ArgumentParser(description="duck: A Python Project Management Tool")
 subparsers = parser.add_subparsers()
 
-# for 'init'
+# Subparser for 'init'
 init_parser = subparsers.add_parser('init', help="Initialize a new project")
+init_parser.add_argument('--venv', default='.venv', help="Path to the virtual environment")
 init_parser.set_defaults(func=init_project)
 
 # for 'quack'
@@ -93,7 +126,7 @@ quack_parser.set_defaults(func=run_main)
 test_parser = subparsers.add_parser('test', help="Run tests")
 test_parser.set_defaults(func=run_tests)
 
-#  for 'set'
+# for 'set'
 set_parser = subparsers.add_parser('set', help="Set a configuration value")
 set_parser.add_argument('key_value', help="Key-value pair, e.g., meta.author=ash")
 set_parser.set_defaults(func=lambda args: set_config(args.key_value))
