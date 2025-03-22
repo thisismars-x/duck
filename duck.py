@@ -110,6 +110,29 @@ def set_config(key_value):
         toml.dump(config, f)
     print(f"Set {key} to {value}")
 
+
+def display_tree(args):
+    if not os.path.exists('duck.toml'):
+        print("duck.toml not found. Run 'duck init' first.")
+        return
+    config = toml.load('duck.toml')
+    dependencies = config.get('dependencies', {})
+    level = args.level
+    print("Dependency Tree:")
+    print_tree(dependencies, level, 0, "")
+
+def print_tree(dependencies, max_level, current_level, indent):
+    if current_level > max_level:
+        return
+    for dep, version in dependencies.items():
+        print(f"{indent}{dep}=={version}")
+        # if the dependency has its own duck.toml??
+        dep_toml_path = os.path.join(dep, 'duck.toml')
+        if os.path.exists(dep_toml_path):
+            dep_config = toml.load(dep_toml_path)
+            sub_dependencies = dep_config.get('dependencies', {})
+            print_tree(sub_dependencies, max_level, current_level + 1, indent + "  ")
+
 parser = argparse.ArgumentParser(description="duck: A Python Project Management Tool")
 subparsers = parser.add_subparsers()
 
@@ -130,6 +153,11 @@ test_parser.set_defaults(func=run_tests)
 set_parser = subparsers.add_parser('set', help="Set a configuration value")
 set_parser.add_argument('key_value', help="Key-value pair, e.g., meta.author=ash")
 set_parser.set_defaults(func=lambda args: set_config(args.key_value))
+
+# for dep tree
+tree_parser = subparsers.add_parser('tree', help="Display dependency tree")
+tree_parser.add_argument('-l', '--level', type=int, default=1, help="Depth level of the dependency tree")
+tree_parser.set_defaults(func=display_tree)
 
 args = parser.parse_args()
 if hasattr(args, 'func'):
