@@ -123,14 +123,14 @@ def dilute_fn(functions):
 		if others['return_type']:
 			func_html += rf'''
 				<div class="func-block" id="{name}">
-				    <h2 font-weight="bolder"> {name}: [{args}] -> {others['return_type']} </h2>
+				    <h1 font-weight="bolder"> -> {name}: [{args}] -> {others['return_type']} </h1>
 				    <p id="func-desc"> {dilute_desc(others['docstring'])} </p>
 				</div>
 			'''
 		else:
 			func_html +=  rf'''
 				<div class="func-block" id="{name}">
-				    <h2 font-weight="bolder"> {name}: [{args}] </h2>
+				    <h2 font-weight="bolder"> -> {name}: [{args}] </h2>
 				    <p> {dilute_desc(others['docstring'])} </p>
 				</div>
 			'''
@@ -146,12 +146,12 @@ def dilute_cls(classes):
 		overview_cls += rf'<li><a href="#{name}"> {name} </a></li>'
 		cls_html += rf'''
 			<div class="class-block" id="{name}">
-				<h1> {name} </h1>
+				<h1> -> {name} </h1>
 				<p> {dilute_desc(others['docstring'])} </p>
 			</div>
 		'''
 		
-		cls_html += f'<h2 class="cls-func-block"> Functions - {name} </h2>'
+		cls_html += f'<h2 class="cls-func-block"> Functions: {name} </h2>'
 		for fname, other in others['methods'].items():
 			args = ''
 			for x in other['params']:

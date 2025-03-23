@@ -7,12 +7,13 @@ import sys, subprocess, colorama
 colorama.init(autoreset=True) 
 from colorama import Fore, Back, Style
 
-@click.group()
+
+@click.group(help=f'{Fore.BLUE}Quack! Quack! Welcome to ..duck')
 def cli():
 	pass
 
-@cli.command()
-@click.option('--lib', is_flag=True, help='Initialize an empty library')
+@cli.command(help="Initialize empty project")
+@click.option('-l', '--lib', is_flag=True, help='Initialize an empty library')
 def init(lib):
 	status = 'n'
 	if os.path.exists('duck.toml'):
@@ -60,12 +61,36 @@ def init(lib):
 		shutil.copytree(config['env']['path'], 'debug/ducky')
 
 
-@cli.command()
-@click.option('--close', is_flag=True, help="Use with --include to create docs for selected files only")
-@click.option('--include', type=str, multiple=True, help="Include these files to your doc")
-@click.option('--exclude', type=str, multiple=True, help="Exclude these files from 'src/' directory")
-@click.option('--duck', is_flag=True, help="Open your docs in a browser. Call this only after you have called doc before.")
-def doc(duck, include, close, exclude):
+@cli.command(help="Generate online documentation")
+@click.option('-c', '--close', is_flag=True, help="Use with --include to create docs for selected files only")
+@click.option('-i', '--include', type=str, multiple=True, help="Include these files to your doc")
+@click.option('-e', '--exclude', type=str, multiple=True, help="Exclude these files from 'src/' directory")
+@click.option('-d', '--duck', is_flag=True, help="Open your docs in a browser. Call this only after you have called doc before.")
+@click.option('-o', '--oopen', is_flag=True, help="Compile your docs and run it at once")
+def doc(duck, include, close, exclude, oopen):
+	
+	if oopen:
+		if os.path.exists(f'/debug/html/page.html'): os.remove(f'/debug/html/page.html')
+		src = 'src'
+		files = [f for f in os.listdir(src) if os.path.isfile(os.path.join(src, f))] if not close else []
+		src = ''
+
+		files = list(set(files) - set(exclude))
+		for file in files:
+			with open(f'src/{file}', 'r') as f:
+				src += '\n'
+				src += f.read()
+
+		for file in include:
+			try:
+				with open(file, 'r') as f: src = src + '\n' + f.read()
+			except:
+				click.echo(f"Problems with including {file} in documentation. Skipping.", err=True)
+		path = os.path.expanduser('~/duck/src')
+		subprocess.run([sys.executable, f'{path}/ducker.py', f'--code={src}'])	
+
+		subprocess.run(['live-server', '--open=debug/html'])
+		return
 
 	if duck:
 		if not os.path.exists(f'debug/html/page.html'):
@@ -93,28 +118,36 @@ def doc(duck, include, close, exclude):
 	subprocess.run([sys.executable, f'{path}/ducker.py', f'--code={src}'])
 
 
-@cli.command()
+@cli.command(help="Run default scripts")
 @click.argument('argss', default='')
 def run(argss):
 	try: 
-		file = toml.load('duck.toml')['main']['file']
-		subprocess.run([sys.executable, file, argss])
+		cwd = os.getcwd().split('src')[0]
+		file = toml.load(f'{cwd}/duck.toml')['main']['file']
+		subprocess.run([sys.executable, file, argss], cwd=cwd)
 	except: 
 		click.echo("Problem finding file under 'main' header in duck.toml", err=True)
 
 
-@cli.command()
-@click.option('--include', type=str, multiple=True, help="Run tests by including only these files from tests/")
+@cli.command(help="Run tests from tests/")
+@click.option('-i', '--include', type=str, multiple=True, help="Run tests by including only these files from tests/")
 def test(include):
 	if not include:
-		subprocess.run(['pytest', 'tests/'])
+		subprocess.run(['pytest', 'tests/'], cwd=os.getcwd().split('tests')[0])
 	else:
+		cwd = os.getcwd().split('tests')[0]
+		include = [f'{cwd}/{x}' for x in include]
 		subprocess.run(['pytest', include])
 
 
-@cli.command()
-@click.option('--l', default=1, help='Get dependency tree upto 2 levels. --l2 for 2-levels. --l 2 can be much slower')
-def tree(l):
+@cli.command(help="Inspect your dependency tree")
+@click.option('-l', '--level', default=1, help='Get dependency tree upto 2 levels. --l2 for 2-levels. --l 2 can be much slower')
+@click.option('-c', '--core', is_flag=True, help='Without duck dependencies')
+def tree(level, core):
+	
+	core_dep = ['toml', 'click', 'colorama', 'pyfiglet', 'pytest', 'iniconfig', 'packaging', 'pluggy']
+
+	l = level
 	if l > 2: 
 		click.echo(f'{Fore.RED} Can not list more than 2 levels, reverting to --l=2 instead')
 		l = 2
@@ -132,27 +165,32 @@ def tree(l):
 			res_tree[package].update({'subtree': sub_tree})
     
 	res_tree_str = str()
-	
+		
 	
 	for (package, meta) in res_tree.items():
+		if core:
+			if package in core_dep: continue
 		res_tree_str += f"{Fore.GREEN} |-------> {Fore.WHITE}{package} @{meta['version']}\n"
 		if l == 2:
 			for subtrees in meta['subtree']: res_tree_str += f"{Fore.GREEN} |    |--> {Fore.BLUE}{subtrees}\n" if subtrees else ''								
 			res_tree_str += f"{Fore.GREEN} |\n"
+	if l==2: res_tree_str += f'\n{Fore.BLUE} Blue dependencies are required by upper white dependencies'	
 	
 	res_tree_str = '\n'.join(res_tree_str.splitlines())
+
+
 	print(res_tree_str)
 
-@cli.command()
+@cli.command(help="Generate lockfile")
 def lock():
 	with open('freeze.txt', 'wb') as f:
 		result = subprocess.run(['pip', 'freeze'], stdout=subprocess.PIPE).stdout
 		f.write(result)
 
 
-@cli.command()
-@click.option('--pkg', type=str, default='', help='Name of package to upgrade')
-@click.option('--version', type=str, default='', help='Version after upgrading')
+@cli.command(help="Upgrade packages")
+@click.option('-p', '--pkg', type=str, default='', help='Name of package to upgrade')
+@click.option('-v', '--version', type=str, default='', help='Version after upgrading')
 def upgrade(pkg, version):
 	if not pkg: 
 		click.echo(f"{Fore.RED} Specify pkg name, see duck upgrade --help")
@@ -181,9 +219,9 @@ def upgrade(pkg, version):
 
 	except: click.echo(f"{Fore.RED} No package satisfies {pkg}@{version}")
 
-@cli.command()
-@click.option('--pkg', type=str, help='<pkg> to be installed')
-@click.option('--release', is_flag=True, help='Bundle in release mode')
+@cli.command(help="Add new packages")
+@click.option('-p', '--pkg', type=str, help='<pkg> to be installed')
+@click.option('-r', '--release', is_flag=True, help='Bundle in release mode')
 def add(pkg, release):
 	try: 
 		subprocess.run(['pip', 'install', pkg])
@@ -199,8 +237,8 @@ def add(pkg, release):
 	except: click.echo(f"{Fore.RED}Could not get- <{pkg}>")
 
 
-@cli.command()
-@click.option('--release', is_flag=True, help='Install packages for your released mode only')
+@cli.command(help="Inherit dependencies from another project")
+@click.option('-r', '--release', is_flag=True, help='Install packages for your released mode only')
 def inherit(release):
 	from_lockfile = []
 	with open('freeze.txt', 'r') as f: from_lockfile = f.read().splitlines()
