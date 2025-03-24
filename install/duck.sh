@@ -6,6 +6,8 @@
 # vi ~/.bashrc
 # source ~/Documents/duck/install/install.sh
 
+# The Only Variable You Need To Be Careful About Is Path
+# Make It Point To 'duck'
 path=$HOME/Documents/duck
 mkdir -p $HOME/duck/
 mkdir -p $HOME/duck/src/
